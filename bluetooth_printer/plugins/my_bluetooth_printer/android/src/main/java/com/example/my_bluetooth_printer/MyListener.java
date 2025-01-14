@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
@@ -72,8 +73,13 @@ public class MyListener {
     private RespCallback respCallback = new RespCallback() {
         @Override
         public void onConnectRespsonse(int code_1, int code_2) {
-            String responseMessage = "端口:" + code_1 + "#" + "结果:" + code_2;
+            String responseMessage = "";
             Log.e("connectResponse", "连接回传数据<" + code_1 + ">,<" + code_2 + ">");
+            if (code_2 == 257 || code_2 == 256 || code_2 == 258 || code_2 == 514) {
+                responseMessage = "连接成功";
+            } else if (code_2 == 512 || code_2 == 518 || code_2 == 519) {
+                responseMessage = "连接失败";
+            }
             message_map.clear();
             message_map.put("connectResponse", responseMessage);
             message_channel.send(message_map);
@@ -147,18 +153,10 @@ public class MyListener {
         if (value == null) return;
         String deviceAddress = (String) value;
         Log.e("startConnect", "开始连接");
-        BluetoothDevice bluetoothDevice = null;
-        for (BluetoothDevice device: deviceList) {
-            if (device.getAddress().equals(deviceAddress)) {
-                bluetoothDevice = device;
-            }
-        }
-        if (bluetoothDevice == null) {
-            message_map.clear();
-            message_map.put("connectMessage", "连接失败");
-            message_channel.send(message_map);
-            return;
-        }
+        BluetoothManager manager = (BluetoothManager)applicationContext.getSystemService(Context.BLUETOOTH_SERVICE);
+        BluetoothAdapter adapter = manager.getAdapter();
+        adapter.enable();
+        BluetoothDevice bluetoothDevice = adapter.getRemoteDevice(deviceAddress);
         String bluetoothType = bluetoothDevice.getType() == BluetoothDevice.DEVICE_TYPE_DUAL ?
                 "SPP" : "BLE";
         CTPL.Port port = "SPP".equals(bluetoothType) ? CTPL.Port.SPP : CTPL.Port.BLE;

@@ -1,5 +1,9 @@
 package com.example.my_rfid_reader;
 
+import android.content.Context;
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -21,6 +25,7 @@ import java.util.Map;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BasicMessageChannel;
+import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.StandardMessageCodec;
 
 /** MyRfidReaderPlugin */
@@ -39,9 +44,18 @@ public class MyRfidReaderPlugin implements FlutterPlugin{
     private final List<String> epc_message = new LinkedList<>();
     private boolean APPEAR_OVER = false;
     
+    private final String ACTION_SCAN = "com.rfid.SCAN_CMD";
+    private final String ACTION_STOP_SCAN = "com.rfid.STOP_SCAN";
+    private final String ACTION_CLOSE_SCAN = "com.rfid.CLOSE_SCAN";
+    private final String RFID_READER_BROADCAST_CHANNEL = "rfid_reader_broadcast_channel";
+    private Context applicationContext;
+    private BroadcastReceiver startScanBroadcastReceiver;
+    private EventChannel eventChannel;
+    
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
         Log.e("onAttachedToEngine", "onAttachedToEngine");
+        applicationContext = flutterPluginBinding.getApplicationContext();
         
         flutter_channel = new BasicMessageChannel<>(
                 flutterPluginBinding.getBinaryMessenger(),
@@ -57,14 +71,17 @@ public class MyRfidReaderPlugin implements FlutterPlugin{
             executeOperation(getCurrentKey());
         });
     }
+    
     private String getCurrentKey() {
         String key = null;
-        if (arguments.containsKey("startConnect"))          key = "startConnect";
-        else if (arguments.containsKey("turnOnPower"))      key = "turnOnPower";
-        else if (arguments.containsKey("turnOffPower"))     key = "turnOffPower";
-        else if (arguments.containsKey("startReader"))      key = "startReader";
-        else if (arguments.containsKey("startReaderEpc"))   key = "startReaderEpc";
-        else if (arguments.containsKey("writeEpcData"))     key = "writeEpcData";
+        if (arguments.containsKey("startConnect")) key = "startConnect";
+        else if (arguments.containsKey("turnOnPower")) key = "turnOnPower";
+        else if (arguments.containsKey("turnOffPower")) key = "turnOffPower";
+        else if (arguments.containsKey("startReader")) key = "startReader";
+        else if (arguments.containsKey("startReaderEpc")) key = "startReaderEpc";
+        else if (arguments.containsKey("writeEpcData")) key = "writeEpcData";
+        else if (arguments.containsKey("startListenerBroadcast")) key = "startListenerBroadcast";
+        else if (arguments.containsKey("stopListenerBroadcast"))  key = "stopListenerBroadcast";
         return key;
     }
     private void executeOperation(@NonNull String key) {
@@ -86,6 +103,12 @@ public class MyRfidReaderPlugin implements FlutterPlugin{
                 break;
             case "writeEpcData":
                 writeEpcData(key);
+                break;
+            case "startListenerBroadcast":
+                startListenerBroadcast(key);
+                break;
+            case "stopListenerBroadcast":
+                stopListenerBroadcast(key);
                 break;
             default:
                 break;
@@ -121,7 +144,9 @@ public class MyRfidReaderPlugin implements FlutterPlugin{
     }
 
     @Override
-    public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {}
+    public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        eventChannel.setStreamHandler(null);
+    }
     
     private int getValueLen(String data) {
         data = data.trim();
@@ -286,6 +311,7 @@ public class MyRfidReaderPlugin implements FlutterPlugin{
             message_map.put("powerMessage", "下电成功");
             flutter_channel.send(message_map);
             POWER_ON = false;
+            epc_message.clear();
         } else {
             Log.e("下电", "下电失败");
             message_map.clear();
@@ -312,7 +338,6 @@ public class MyRfidReaderPlugin implements FlutterPlugin{
             // Log.e("读卡", "操作成功");
             Log.e("读卡", "操作成功");
             operationSuccess = true;
-            epc_message.clear();
         } else {
             // Log.e("读卡", "操作失败");
             message_map.clear();
@@ -373,5 +398,31 @@ public class MyRfidReaderPlugin implements FlutterPlugin{
         client.sendSynMsg(msgBaseWriteEpc);
         byte code = msgBaseWriteEpc.getRtCode();
         setWriteMessage(code);
+    }
+    
+    private void startListenerBroadcast(String key) {
+        Object value = arguments.get(key);
+        if (value == null) return;
+        if (!(boolean) value) return;
+        startScanBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.e("startRfidBroadcast", "startScan");
+                message_map.clear();
+                message_map.put("rfidBroadcast", "startScan");
+                flutter_channel.send(message_map);
+            }
+        };
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_SCAN);
+        applicationContext.registerReceiver(
+            startScanBroadcastReceiver, filter);
+    }
+    private void stopListenerBroadcast(String key) {
+        Object value = arguments.get(key);
+        if (value == null) return;
+        if (!(boolean) value) return;
+        applicationContext.unregisterReceiver(startScanBroadcastReceiver);
+        startScanBroadcastReceiver = null;
     }
 }

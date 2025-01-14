@@ -19,12 +19,15 @@ class RfidReader(ConstrainedControl):
         start_reader: Optional[bool] = False,
         start_reader_epc: Optional[bool] = False,
         start_write_epc: Optional[bool] = False,
+        start_listener_broadcast: Optional[bool] = False,
+        stop_listener_broadcast: Optional[bool] = False,
         connect_message: Optional[str] = "",
         power_message: Optional[str] = "",
         epc_messages: Optional[str] = "",
         write_epc_message: Optional[str] = "",
         reader_operation_message: Optional[str] = "",
         on_listener = None,
+        on_listener_broadcast = None,
     ):
         ConstrainedControl.__init__(self)
         self.start_connect = start_connect     # 设备连接标志
@@ -43,7 +46,9 @@ class RfidReader(ConstrainedControl):
         self.epc_data_area = epc_data_area     #  写入数据的区域
         self.start_write_epc = start_write_epc    #  进行写卡的标志
         self.write_epc_emssage = write_epc_message   #  写卡时返回过来的信息
-
+        self.start_listener_broadcast = start_listener_broadcast
+        self.stop_listener_broadcast = stop_listener_broadcast
+        self.on_listener_broadcast = on_listener_broadcast
     def _get_control_name(self) -> str:
         return "rfid_reader"
 
@@ -177,6 +182,30 @@ class RfidReader(ConstrainedControl):
     def write_epc_message(self, value):
         self._set_attr("write_epc_message", value)
     
+    @property
+    def start_listener_broadcast(self):
+        return self._get_attr("start_listener_broadcast")
+
+    @start_listener_broadcast.setter
+    def start_listener_broadcast(self, value):
+        self._set_attr("start_listener_broadcast", value)
+    
+    @property
+    def stop_listener_broadcast(self):
+        return self._get_attr("stop_listener_broadcast")
+
+    @stop_listener_broadcast.setter
+    def stop_listener_broadcast(self, value):
+        self._set_attr("stop_listener_broadcast", value)
+
+    @property
+    def on_listener_broadcast(self):
+        return self._get_event_handler("on_listener_broadcast")
+
+    @on_listener_broadcast.setter
+    def on_listener_broadcast(self, handler):
+        self._add_event_handler("on_listener_broadcast", handler)
+    
     def connect(self):
         self._set_attr("start_connect", True)
     
@@ -197,5 +226,11 @@ class RfidReader(ConstrainedControl):
         self._set_attr("epc_data", epc_data)
         self._set_attr("epc_data_area", epc_data_area)
         self._set_attr("start_write_epc", True)
+    
+    def listener_broadcast(self):
+        self._set_attr("start_listener_broadcast", True)
+    
+    def close_listener_broadcast(self):
+        self._set_attr("stop_listener_broadcast", True)
 
 

@@ -17,6 +17,7 @@ class RfidReader extends StatefulWidget {
 class _RfidReader extends State<RfidReader> with MyRfidReaderMixin<RfidReader>{
   late TextEditingController _controller;
   String _string = "";
+  bool _start_listener_broadcast = false;
   MyRfidReaderUtil myRfidReaderUtil = MyRfidReaderUtil();
 
   @override
@@ -36,8 +37,9 @@ class _RfidReader extends State<RfidReader> with MyRfidReaderMixin<RfidReader>{
     var reader_operation_message = widget.control.attrString("reader_operation_message");
     var epc_messages = widget.control.attrString("epc_messages");
     var write_epc_message = widget.control.attrString("write_epc_message");
-
-
+    var start_listener_broadcast = widget.control.attrBool("start_listener_broadcast")!;
+    var stop_listener_broadcast = widget.control.attrBool("stop_listener_broadcast")!;
+  
     if (start_connect) {     // 开始扫描标志为True时向Android端发送对应信息
       myRfidReaderUtil.sendMessageToAndroid("startConnect", true);
       setState(() {
@@ -85,6 +87,18 @@ class _RfidReader extends State<RfidReader> with MyRfidReaderMixin<RfidReader>{
     }
     if (_string != "") {
       _controller.text = _string;
+    }
+    if (start_listener_broadcast) {
+      myRfidReaderUtil.sendMessageToAndroid("startListenerBroadcast", true);
+      setState(() {
+        widget.backend.updateControlState(widget.control.id, {"start_listener_broadcast": "false"});
+      });
+    } 
+    if (stop_listener_broadcast) {
+      myRfidReaderUtil.sendMessageToAndroid("stopListenerBroadcast", true);
+      setState(() {
+        widget.backend.updateControlState(widget.control.id, {"stop_listener_broadcast": "false"});
+      });
     }
     Widget bluetooth_control = TextField(
         controller: _controller,
@@ -158,6 +172,24 @@ class _RfidReader extends State<RfidReader> with MyRfidReaderMixin<RfidReader>{
         _string = eventString;
       });
     }
+
+    // 广播
+    var rfidBroadcast = message["rfidBroadcast"];
+    if (rfidBroadcast != null) {
+      String eventString = rfidBroadcast;
+      widget.backend.updateControlState(widget.control.id, {"message_tag": "rfid_broadcast"});
+      widget.backend.triggerControlEvent(widget.control.id, "on_listener_broadcast", eventString);
+      setState(() {
+        _string = eventString;
+      });
+    }
   }
+
+  // @override
+  // Future<void> rfidReaderBroadcastCodeHandle(String pda_code) async{
+  //   if (_start_listener_broadcast) {
+  //     widget.backend.triggerControlEvent(widget.control.id, "on_listener_broadcast", pda_code);
+  //   }
+  // }
 }
 
